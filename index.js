@@ -47,6 +47,60 @@ app.delete("/users/:id", (req, res) => {
     res.status(200).json({message: "Юзер успешно удален"})
 })
 
+app.get("/todos", (_, res) => {
+    const data = db.prepare("SELECT * FROM todos").all()
+    res.json(data)
+})
+
+app.delete("/todos", (req, res) => {
+    const { id } = req.params
+    const query = db.prepare(`DELETE FROM todos WHERE id = ?`)
+    const result = query.run(id)
+
+    if (result.changes === 0) res.status(404).json({error: "Задача не был найдена"})
+
+    res.status(200).json({message: "Задача успешно удалена"})
+
+})
+
+app.post("/todos", (req, res) => {
+    const { name, status } = req.body
+
+    try {
+        if (!status || !name) {
+            return res.status(400).json({ error: "Не хватает данных" })
+        }
+        const query = db.prepare(
+            `INSERT INTO todos (status, name) VALUES (?, ?)`
+        )
+        const info = query.run(status, name)
+        const newUser = db
+            .prepare(`SELECT * FROM users WHERE ID = ?`)
+            .get(info.lastInsertRowid)
+        res.status(201).json(newUser)
+    } catch (error) {
+        console.error(error)
+    }
+})
+
+app.delete("/users/:id", (req, res) => {
+    const { id } = req.params
+    const query = db.prepare(`DELETE FROM users WHERE id = ?`)
+    const result = query.run(id)
+
+    if (result.changes === 0) res.status(404).json({error: "Пользователь не был найден"})
+
+    res.status(200).json({message: "Юзер успешно удален"})
+})
+
+app.patch("/todos/:id/toggle", (req, res) => {
+    try {
+        const query = db.prepare(`UPDATE todos SET status = status - 1 WHERE id = ?`)
+    } catch (error) {
+        console.error(error)
+    }
+})
+
 app.listen("3000", () => {
     console.log("Сервер запущен на порту 3000")
 })
