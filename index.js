@@ -1,78 +1,103 @@
-const db = require("./db")
-const express = require("express")
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+const db = require('./db')
+const express = require('express')
+
+const salt = 'secret-key'
+const SECRET = 'this-is-for-JWT'
 
 const app = express()
 
 app.use(express.json())
 
-app.get("/", (_, res) => {
-    res.send("Hello world")
-})
-
-app.post("/", (req, res) => {
-    console.log(req.body)
-    res.send("Успех")
-})
-
-app.get("/users", (_, res) => {
-    const data = db.prepare("SELECT * FROM users").all()
-    res.json(data)
-})
-
-app.post("/users", (req, res) => {
-    const { email, name } = req.body
+app.post('/register', (req, res) => {
+    const { email, name, password } = req.body
 
     try {
-        if (!email || !name) {
-            return res.status(400).json({ error: "Не хватает данных" })
+        if (!email || !name || !password) {
+            return res.status(400).json({ error: 'Не хватает данных' })
         }
+        const syncSalt = bcrypt.genSaltSync(10)
+        const hashed = bcrypt.hashSync(password, syncSalt)
         const query = db.prepare(
-            `INSERT INTO users (email, name) VALUES (?, ?)`
+            `INSERT INTO users (email, name, password) VALUES (?, ?, ?)`,
         )
-        const info = query.run(email, name)
+        const info = query.run(email, name, hashed)
         const newUser = db
             .prepare(`SELECT * FROM users WHERE ID = ?`)
             .get(info.lastInsertRowid)
         res.status(201).json(newUser)
-    } catch (error) {}
+    } catch (error) {
+        console.error(error)
+    }
 })
 
-app.delete("/users/:id", (req, res) => {
+app.post('/login', (req, res) => {
+    const { email, password } = req.body
+
+    const user = db.prepare(`SELECT * FROM users WHERE email = ?`).get(email)
+
+    if (!user) res.status(401).json({ error: 'Неправильные данные' })
+
+    const valid = bcrypt.compareSync(password, user.password)
+
+    if (!valid) res.status(401).json({ error: 'Неправильные данные' })
+
+    const token = jwt.sign({ ...user }, SECRET, { expiresIn: '24h' })
+
+    res.json(token)
+})
+
+app.get('/', (_, res) => {
+    res.send('Hello world')
+})
+
+app.post('/', (req, res) => {
+    console.log(req.body)
+    res.send('Успех')
+})
+
+app.get('/users', (_, res) => {
+    const data = db.prepare('SELECT * FROM users').all()
+    res.json(data)
+})
+
+app.delete('/users/:id', (req, res) => {
     const { id } = req.params
     const query = db.prepare(`DELETE FROM users WHERE id = ?`)
     const result = query.run(id)
 
     if (result.changes === 0)
-        res.status(404).json({ error: "Пользователь не был найден" })
+        res.status(404).json({ error: 'Пользователь не был найден' })
 
-    res.status(200).json({ message: "Юзер успешно удален" })
+    res.status(200).json({ message: 'Юзер успешно удален' })
 })
 
-app.get("/todos", (_, res) => {
-    const data = db.prepare("SELECT * FROM todos").all()
+app.get('/todos', (_, res) => {
+    const data = db.prepare('SELECT * FROM todos').all()
     res.json(data)
 })
 
-app.delete("/todos", (req, res) => {
+app.delete('/todos', (req, res) => {
     const { id } = req.params
     const query = db.prepare(`DELETE FROM todos WHERE id = ?`)
     const result = query.run(id)
 
     if (result.changes === 0)
-        res.status(404).json({ error: "Задача не был найдена" })
+        res.status(404).json({ error: 'Задача не был найдена' })
 
-    res.status(200).json({ message: "Задача успешно удалена" })
+    res.status(200).json({ message: 'Задача успешно удалена' })
 })
 
-app.post("/todos", (req, res) => {
+app.post('/todos', (req, res) => {
     const { name, status } = req.body
 
     try {
         if (!name) {
-            return res.status(400).json({ error: "Не хватает данных" })
+            return res.status(400).json({ error: 'Не хватает данных' })
         }
         const query = db.prepare(
-            `INSERT INTO todos (status, name) VALUES (?, ?)`
+            `INSERT INTO todos (status, name) VALUES (?, ?)`,
         )
         const info = query.run(status, name)
         const newUser = db
@@ -84,33 +109,39 @@ app.post("/todos", (req, res) => {
     }
 })
 
-app.delete("/users/:id", (req, res) => {
+app.delete('/users/:id', (req, res) => {
     const { id } = req.params
     const query = db.prepare(`DELETE FROM users WHERE id = ?`)
     const result = query.run(id)
 
     if (result.changes === 0)
-        res.status(404).json({ error: "Пользователь не был найден" })
+        res.status(404).json({ error: 'Пользователь не был найден' })
 
-    res.status(200).json({ message: "Юзер успешно удален" })
+    res.status(200).json({ message: 'Юзер успешно удален' })
 })
 
-app.patch("/todos/:id/toggle", (req, res) => {
+app.patch('/todos/:id/toggle', (req, res) => {
     try {
         const { id } = req.params
         const query = db.prepare(
-            `UPDATE todos SET status = 1 - status WHERE id = ?`
+            `UPDATE todos SET status = 1 - status WHERE id = ?`,
         )
         const result = query.run(id)
-        
-        if (result.changes === 0) res.status(404).json({error: "Задачи не было найдено"})
-        
-        res.status(200).json({message: "Задача обновлена"})
+
+        if (result.changes === 0)
+            res.status(404).json({ error: 'Задачи не было найдено' })
+
+        res.status(200).json({ message: 'Задача обновлена' })
     } catch (error) {
         console.error(error)
     }
 })
 
-app.listen("3000", () => {
-    console.log("Сервер запущен на порту 3000")
+app.listen('3000', () => {
+    console.log('Сервер запущен на порту 3000')
 })
+
+ curl 
+-X POST "http://localhost:3000/register" 
+-H "Content-Type: application/json" 
+-d '{"email": "example@domain.com", "password": "123456", "name": "ktkv"}'
