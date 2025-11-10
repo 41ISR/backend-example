@@ -42,9 +42,10 @@ app.delete("/users/:id", (req, res) => {
     const query = db.prepare(`DELETE FROM users WHERE id = ?`)
     const result = query.run(id)
 
-    if (result.changes === 0) res.status(404).json({error: "Пользователь не был найден"})
+    if (result.changes === 0)
+        res.status(404).json({ error: "Пользователь не был найден" })
 
-    res.status(200).json({message: "Юзер успешно удален"})
+    res.status(200).json({ message: "Юзер успешно удален" })
 })
 
 app.get("/todos", (_, res) => {
@@ -57,17 +58,17 @@ app.delete("/todos", (req, res) => {
     const query = db.prepare(`DELETE FROM todos WHERE id = ?`)
     const result = query.run(id)
 
-    if (result.changes === 0) res.status(404).json({error: "Задача не был найдена"})
+    if (result.changes === 0)
+        res.status(404).json({ error: "Задача не был найдена" })
 
-    res.status(200).json({message: "Задача успешно удалена"})
-
+    res.status(200).json({ message: "Задача успешно удалена" })
 })
 
 app.post("/todos", (req, res) => {
     const { name, status } = req.body
 
     try {
-        if (!status || !name) {
+        if (!name) {
             return res.status(400).json({ error: "Не хватает данных" })
         }
         const query = db.prepare(
@@ -75,7 +76,7 @@ app.post("/todos", (req, res) => {
         )
         const info = query.run(status, name)
         const newUser = db
-            .prepare(`SELECT * FROM users WHERE ID = ?`)
+            .prepare(`SELECT * FROM todos WHERE ID = ?`)
             .get(info.lastInsertRowid)
         res.status(201).json(newUser)
     } catch (error) {
@@ -88,14 +89,23 @@ app.delete("/users/:id", (req, res) => {
     const query = db.prepare(`DELETE FROM users WHERE id = ?`)
     const result = query.run(id)
 
-    if (result.changes === 0) res.status(404).json({error: "Пользователь не был найден"})
+    if (result.changes === 0)
+        res.status(404).json({ error: "Пользователь не был найден" })
 
-    res.status(200).json({message: "Юзер успешно удален"})
+    res.status(200).json({ message: "Юзер успешно удален" })
 })
 
 app.patch("/todos/:id/toggle", (req, res) => {
     try {
-        const query = db.prepare(`UPDATE todos SET status = status - 1 WHERE id = ?`)
+        const { id } = req.params
+        const query = db.prepare(
+            `UPDATE todos SET status = 1 - status WHERE id = ?`
+        )
+        const result = query.run(id)
+        
+        if (result.changes === 0) res.status(404).json({error: "Задачи не было найдено"})
+        
+        res.status(200).json({message: "Задача обновлена"})
     } catch (error) {
         console.error(error)
     }
